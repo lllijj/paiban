@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>个人排班查询</title>
+
+    <!-- iPhone / PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="排班表">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icon-180.png">
+    <link rel="icon" type="image/png" href="icon-180.png">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button, input, select { touch-action: manipulation; }
+
+        .container {
+            max-width: 950px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            margin: 10px auto;
+        }
+
+        /* iPhone 添加到主屏幕提示 */
+        .ios-hint {
+            display: none;
+            align-items: flex-start;
+            gap: 10px;
+            background: #fff8e1;
+            border: 1px solid #ffd54f;
+            color: #795548;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 18px;
+            font-size: 14px;
+            line-height: 1.55;
+        }
+        .ios-hint.show { display: flex; }
+        .ios-hint button {
+            flex-shrink: 0;
+            border: none;
+            background: #ffd54f;
+            color: #5d4037;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .header {
+            text-align: center;
+            padding-bottom: 25px;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 25px;
+        }
+
+        .header h1 { font-size: 28px; color: #333; margin-bottom: 8px; }
+        .header .subtitle { color: #888; font-size: 14px; }
+
+        .cycle-info {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .cycle-info .item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .cycle-info .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .dot-main { background: #ff4757; }
+        .dot-secondary { background: #ffa502; }
+        .dot-rest { background: #2ed573; }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tabs button {
+            flex: 1;
+            min-width: 70px;
+            min-height: 44px;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tabs button:hover { border-color: #667eea; color: #667eea; }
+        .nav-tabs button.active { background: #667eea; border-color: #667eea; color: white; }
+        .nav-tabs button.set-btn { background: #2ed573; border-color: #2ed573; color: white; }
+        .nav-tabs button.set-btn:hover { background: #26b865; border-color: #26b865; }
+
+        .tab-content { display: none; animation: fadeIn 0.4s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .query-form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .query-form input {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .query-form input:focus { outline: none; border-color: #667eea; }
+        .query-form select {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            min-width: 100px;
+        }
+        .query-form select:focus { outline: none; border-color: #667eea; }
+
+        .query-form button {
+            min-height: 44px;
+            padding: 12px 25px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        .query-form button:hover { background: #5a6fd6; }
+        .query-form .btn-quick { background: #f0f0f0; color: #555; }
+        .query-form .btn-quick:hover { background: #e0e0e0; }
+        .query-form .btn-success { background: #2ed573; }
+        .query-form .btn-success:hover { background: #26b865; }
+        .query-form .btn-danger { background: #ff6b6b; }
+        .query-form .btn-danger:hover { background: #ee5a24; }
+
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 15px;
+        }
+
+        .result-card .date-header { font-size: 20px; font-weight: 600; color: #333; margin-bottom: 15px; }
+        .result-card .shift-info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .result-card .shift-item {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .result-card .shift-item .label { color: #888; font-size: 13px; }
+        .result-card .shift-item .value { font-weight: 600; font-size: 16px; color: #333; }
+
+        .shift-badge { display: inline-block; padding: 4px 16px; border-radius: 20px; font-weight: 600; font-size: 16px; }
+        .shift-main { background: #ffe0e0; color: #ff4757; }
+        .shift-secondary { background: #fff3e0; color: #ffa502; }
+        .shift-rest { background: #e0f7e9; color: #2ed573; }
+        .shift-day { background: #e3f2fd; color: #1976d2; }
+        .shift-night { background: #ede7f6; color: #5e35b1; }
+
+        .schedule-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        .schedule-table th { background: #f0f0f5; padding: 12px; text-align: left; font-weight: 600; color: #555; }
+        .schedule-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+        .schedule-table tr:hover { background: #f8f9fa; }
+
+        .schedule-table .shift-tag { display: inline-block; padding: 2px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+        .tag-main { background: #ffe0e0; color: #ff4757; }
+        .tag-secondary { background: #fff3e0; color: #ffa502; }
+        .tag-rest { background: #e0f7e9; color: #2ed573; }
+        .tag-day { background: #e3f2fd; color: #1976d2; }
+        .tag-night { background: #ede7f6; color: #5e35b1; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 15px 0; }
+        .stats-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .stats-card .number { font-size: 32px; font-weight: 700; color: #333; }
+        .stats-card .label { font-size: 13px; color: #888; margin-top: 5px; }
+        .stats-card .number.main { color: #ff4757; }
+        .stats-card .number.secondary { color: #ffa502; }
+        .stats-card .number.rest { color: #2ed573; }
+        .stats-card .number.day { color: #1976d2; }
+        .stats-card .number.night { color: #5e35b1; }
+
+        .pattern-switch { display: flex; gap: 10px; margin-bottom: 20px; }
+        .pattern-switch button {
+            flex: 1;
+            min-height: 44px;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            transition: all 0.3s ease;
+        }
+        .pattern-switch button:hover { border-color: #764ba2; color: #764ba2; }
+        .pattern-switch button.active { background: #764ba2; border-color: #764ba2; color: white; }
+
+        .no-result { text-align: center; padding: 40px 20px; color: #888; }
+        .no-result .icon { font-size: 48px; margin-bottom: 10px; }
+
+        .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 15px; }
+        .week-day { background: #f8f9fa; border-radius: 10px; padding: 12px 8px; text-align: center; min-height: 80px; transition: transform 0.2s; }
+        .week-day:hover { transform: scale(1.05); }
+        .week-day .date { font-size: 12px; color: #888; }
+        .week-day .weekday { font-weight: 600; font-size: 14px; color: #333; margin: 4px 0; }
+        .week-day .shift-name { font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 10px; display: inline-block; }
+        .week-day .shift-name.main { background: #ffe0e0; color: #ff4757; }
+        .week-day .shift-name.secondary { background: #fff3e0; color: #ffa502; }
+        .week-day .shift-name.rest { background: #e0f7e9; color: #2ed573; }
+        .week-day .shift-name.day { background: #e3f2fd; color: #1976d2; }
+        .week-day .shift-name.night { background: #ede7f6; color: #5e35b1; }
+        .week-day.today { border: 2px solid #667eea; background: #f0f0ff; }
+
+        .footer { text-align: center; margin-top: 25px; padding-top: 20px; border-top: 2px solid #f0f0f0; color: #aaa; font-size: 13px; }
+
+        .info-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 15px; margin: 15px 0; color: #856404; }
+        .info-box strong { color: #856404; }
+        .info-box.success { background: #d4edda; border-color: #28a745; color: #155724; }
+        .info-box.success strong { color: #155724; }
+        .info-box.info { background: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+        .info-box.info strong { color: #0c5460; }
+
+        .set-panel { background: #f0f0ff; border-radius: 15px; padding: 20px; margin-bottom: 20px; border: 2px dashed #667eea; }
+        .set-panel .title { font-weight: 600; font-size: 16px; color: #667eea; margin-bottom: 15px; }
+
+        .current-status { background: white; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 4px solid #667eea; }
+        .current-status .label { color: #888; font-size: 13px; }
+        .current-status .value { font-weight: 600; font-size: 16px; color: #333; }
+
+        @media (max-width: 600px) {
+            .container { padding: 18px; border-radius: 16px; }
+            .header h1 { font-size: 22px; }
+            .result-card { padding: 18px; }
+            .result-card .date-header { font-size: 18px; }
+            .result-card .shift-info { grid-template-columns: 1fr; }
+            .week-grid { grid-template-columns: repeat(7, 1fr); gap: 4px; }
+            .week-day { padding: 8px 4px; min-height: 62px; }
+            .week-day .date { font-size: 10px; }
+            .week-day .weekday { font-size: 12px; }
+            .week-day .shift-name { font-size: 11px; padding: 2px 5px; }
+            .cycle-info { font-size: 12px; padding: 10px; }
+            .nav-tabs { gap: 8px; }
+            .nav-tabs button { font-size: 12px; padding: 10px 8px; min-width: 62px; }
+            .query-form input, .query-form select { min-width: 100px; padding: 10px; }
+            .query-form button { padding: 10px 15px; font-size: 14px; }
+            .pattern-switch button { font-size: 12px; padding: 10px 8px; }
+            .schedule-table { font-size: 12px; }
+            .schedule-table th, .schedule-table td { padding: 8px 6px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="ios-hint" id="iosHint">
+        <span>📲 iPhone 使用提示：点 Safari 底部的「分享」按钮 → 选择「添加到主屏幕」，以后就能像 App 一样打开。</span>
+        <button onclick="dismissIosHint()">知道了</button>
+    </div>
+
+    <div class="header">
+        <h1>📋 个人排班查询</h1>
+        <div class="subtitle" id="subtitle">主班/副班/休息 · 24小时制 · 早上8点交接</div>
+    </div>
+
+    <div class="pattern-switch">
+        <button class="active" data-pattern="zhufu">🔴 主/副/休 (24小时)</button>
+        <button data-pattern="baiye">☀️ 白/夜/下/休 (12小时)</button>
+    </div>
+
+    <div class="cycle-info" id="cycleInfo"></div>
+
+    <div class="nav-tabs">
+        <button class="active" data-tab="query">📅 查询</button>
+        <button class="set-btn" data-tab="set">⚙️ 设置今天</button>
+        <button data-tab="today">📌 今天</button>
+        <button data-tab="week">📆 本周</button>
+        <button data-tab="all">📋 全部</button>
+        <button data-tab="stats">📊 统计</button>
+    </div>
+
+    <!-- 查询 -->
+    <div class="tab-content active" id="tab-query">
+        <div class="query-form">
+            <input type="text" id="dateInput" inputmode="numeric" placeholder="输入日期 (如: 2027-09-14 或 09-14)" />
+            <button onclick="queryDate()">🔍 查询</button>
+            <button class="btn-quick" onclick="setTodayQuery()">📌 今天</button>
+            <button class="btn-quick" onclick="setTomorrowQuery()">📌 明天</button>
+        </div>
+        <div id="queryResult"></div>
+    </div>
+
+    <!-- 设置今天 -->
+    <div class="tab-content" id="tab-set">
+        <div class="info-box info">
+            <strong>💡 使用方法：</strong> 先在顶部选择班制，再输入今天的日期、选择今天是什么班，系统会自动推算所有排班。切换班制后各班制的设置互不影响，设置会自动保存在本机。
+        </div>
+
+        <div class="set-panel">
+            <div class="title">📌 设置今天的班次</div>
+            <div class="query-form">
+                <input type="text" id="setDate" inputmode="numeric" placeholder="今天日期 (如: 09-14 或 2027-09-14)" />
+                <select id="setShift">
+                    <option value="主班">🔴 主班</option>
+                    <option value="休息">🟢 休息</option>
+                    <option value="副班">🟡 副班</option>
+                </select>
+                <button class="btn-success" onclick="applySettings()">✅ 确认设置</button>
+                <button class="btn-danger" onclick="resetDefault()">↩️ 恢复默认</button>
+            </div>
+        </div>
+
+        <div id="setResult"></div>
+        <div id="setPreview"></div>
+
+        <div class="current-status" style="margin-top:15px;">
+            <div><span class="label">当前模式：</span><span class="value" id="modeDisplay">默认模式</span></div>
+            <div style="margin-top:5px;"><span class="label">起始日期：</span><span class="value" id="startDateDisplay">2026-09-07</span></div>
+            <div><span class="label">起始班次：</span><span class="value" id="startShiftDisplay">主班</span></div>
+        </div>
+    </div>
+
+    <!-- 今天 -->
+    <div class="tab-content" id="tab-today">
+        <div id="todayResult"></div>
+    </div>
+
+    <!-- 本周 -->
+    <div class="tab-content" id="tab-week">
+        <div id="weekResult"></div>
+    </div>
+
+    <!-- 全部 -->
+    <div class="tab-content" id="tab-all">
+        <div id="allResult"></div>
+    </div>
+
+    <!-- 统计 -->
+    <div class="tab-content" id="tab-stats">
+        <div id="statsResult"></div>
+    </div>
+
+    <div class="footer">
+        排班基准 <span id="footerStartDate">2026-09-07</span> · <span id="footerCycle">4</span>天一循环 · 任意日期可查
+        <span id="footerMode" style="margin-left:15px;"></span>
+    </div>
+</div>
+
+<script>
+    // ===================== 排班配置：两种班制 =====================
+    const PATTERNS = {
+        zhufu: {
+            name: '主/副/休 (24小时)',
+            subtitle: '主班/副班/休息 · 24小时制 · 早上8点交接',
+            cycle: ['主班', '休息', '副班', '休息'],
+            shifts: {
+                '主班': { icon: '🔴', cssClass: 'main', color: '#ff4757', startHour: 8, hours: 24 },
+                '副班': { icon: '🟡', cssClass: 'secondary', color: '#ffa502', startHour: 8, hours: 24 },
+                '休息': { icon: '🟢', cssClass: 'rest', color: '#2ed573', hours: 0 }
+            }
+        },
+        baiye: {
+            name: '白/夜/下/休 (12小时)',
+            subtitle: '白班/夜班/下夜/休息 · 白班 08:00-20:00 · 夜班 20:00-次日 08:00',
+            cycle: ['白班', '夜班', '下夜', '休息'],
+            shifts: {
+                '白班': { icon: '☀️', cssClass: 'day', color: '#1976d2', startHour: 8, hours: 12 },
+                '夜班': { icon: '🌙', cssClass: 'night', color: '#5e35b1', startHour: 20, hours: 12 },
+                '下夜': { icon: '😴', cssClass: 'rest', color: '#2ed573', hours: 0 },
+                '休息': { icon: '🟢', cssClass: 'rest', color: '#2ed573', hours: 0 }
+            }
+        }
+    };
+    const DEFAULT_ANCHOR = new Date(2026, 8, 7); // 主/副/休 班制的默认锚点：2026-09-07 = 主班
+    const LOOKAHEAD_DAYS = 335;  // 排班表窗口：从锚点算到今天+335天
+    const STORAGE_KEY = 'paiban_state_v1';
+    const HINT_KEY = 'paiban_ios_hint_dismissed';
+
+    let currentPatternId = 'zhufu';
+    let anchorDate = DEFAULT_ANCHOR;   // 推算基准日
+    let anchorShift = '主班';          // 基准日当天的班次
+    let schedule = [];
+    let isManualMode = false;
+    let manualStartDate = null;
+    let manualStartShift = null;
+
+    // ===================== 本地存储 =====================
+    function storageGet(key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+    }
+    function storageSet(key, value) {
+        try { localStorage.setItem(key, value); } catch (e) { /* 无痕模式等场景忽略 */ }
+    }
+    function dateFromStr(s) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+        if (!m) return null;
+        const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    // 各班制独立的锚点状态（切换班制互不丢失，并持久化）
+    function defaultStateFor(id) {
+        if (id === 'baiye') {
+            const t = new Date();
+            return { anchorDate: new Date(t.getFullYear(), t.getMonth(), t.getDate()), anchorShift: '白班', isManual: false, manualStartDate: null, manualStartShift: null };
+        }
+        return { anchorDate: DEFAULT_ANCHOR, anchorShift: '主班', isManual: false, manualStartDate: null, manualStartShift: null };
+    }
+    let patternState = { zhufu: defaultStateFor('zhufu'), baiye: defaultStateFor('baiye') };
+
+    function loadState() {
+        const raw = storageGet(STORAGE_KEY);
+        if (!raw) return;
+        try {
+            const saved = JSON.parse(raw);
+            if (saved.currentPatternId && PATTERNS[saved.currentPatternId]) {
+                currentPatternId = saved.currentPatternId;
+            }
+            if (saved.patternState) {
+                ['zhufu', 'baiye'].forEach(id => {
+                    const s = saved.patternState[id];
+                    if (!s) return;
+                    const def = defaultStateFor(id);
+                    const ad = dateFromStr(s.anchorDate) || def.anchorDate;
+                    const shift = PATTERNS[id].cycle.includes(s.anchorShift) ? s.anchorShift : def.anchorShift;
+                    patternState[id] = {
+                        anchorDate: ad,
+                        anchorShift: shift,
+                        isManual: !!s.isManual,
+                        manualStartDate: dateFromStr(s.manualStartDate),
+                        manualStartShift: s.manualStartShift || null
+                    };
+                });
+            }
+        } catch (e) { /* 数据损坏则使用默认 */ }
+    }
+
+    function saveState() {
+        const out = { currentPatternId: currentPatternId, patternState: {} };
+        ['zhufu', 'baiye'].forEach(id => {
+            const s = patternState[id];
+            out.patternState[id] = {
+                anchorDate: formatDate(s.anchorDate),
+                anchorShift: s.anchorShift,
+                isManual: !!s.isManual,
+                manualStartDate: s.manualStartDate ? formatDate(s.manualStartDate) : null,
+                manualStartShift: s.manualStartShift || null
+            };
+        });
+        storageSet(STORAGE_KEY, JSON.stringify(out));
+    }
+
+    // ===================== 生成排班 =====================
+    function getShiftForDate(date) {
+        if (!(date instanceof Date) || isNaN(date.getTime())) return null;
+        const P = PATTERNS[currentPatternId];
+        const cycleLen = P.cycle.length;
+        const diffDays = Math.round((date.getTime() - anchorDate.getTime()) / (24 * 60 * 60 * 1000));
+        const anchorIdx = Math.max(0, P.cycle.indexOf(anchorShift));
+        const cycleIndex = (anchorIdx + ((diffDays % cycleLen) + cycleLen) % cycleLen) % cycleLen;
+        const shiftType = P.cycle[cycleIndex];
+        const def = P.shifts[shiftType];
+        const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+        let startTime = '—', endTime = '—', hours = 0;
+        if (def.hours > 0) {
+            const s = new Date(base.getTime() + def.startHour * 60 * 60 * 1000);
+            const e = new Date(s.getTime() + def.hours * 60 * 60 * 1000);
+            startTime = formatDateTime(s);
+            endTime = formatDateTime(e);
+            hours = def.hours;
+        }
+
+        return {
+            date: formatDate(date),
+            weekday: getWeekday(date),
+            shift: shiftType,
+            icon: def.icon,
+            cssClass: def.cssClass,
+            startTime: startTime,
+            endTime: endTime,
+            hours: hours,
+            cycleIndex: cycleIndex
+        };
+    }
+
+    function generateScheduleWindow() {
+        const today = new Date();
+        const anchor = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate());
+        const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + LOOKAHEAD_DAYS);
+        const list = [];
+        let i = 0;
+        const d = new Date(anchor);
+        while (d <= end) {
+            const s = getShiftForDate(d);
+            if (s) { s.index = i + 1; list.push(s); }
+            d.setDate(d.getDate() + 1);
+            i++;
+        }
+        return list;
+    }
+
+    function generateManualSchedule(baseDate, baseShift, totalDays) {
+        const savedAnchor = anchorDate, savedShift = anchorShift;
+        anchorDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+        anchorShift = baseShift;
+        const list = [];
+        for (let i = 0; i < totalDays; i++) {
+            const d = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate() + i);
+            const s = getShiftForDate(d);
+            if (s) { s.index = i + 1; list.push(s); }
+        }
+        anchorDate = savedAnchor; anchorShift = savedShift;
+        return list;
+    }
+
+    // ===================== 工具函数 =====================
+    function formatDate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function formatDateTime(date) {
+        return formatDate(date) + ' ' + String(date.getHours()).padStart(2, '0') + ':00';
+    }
+
+    function getWeekday(date) {
+        const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        return weekdays[date.getDay() === 0 ? 6 : date.getDay() - 1];
+    }
+
+    function parseDate(input) {
+        if (!input) return null;
+        if (/^\d{2}-\d{2}$/.test(input)) {
+            const year = new Date().getFullYear();
+            const [m, d] = input.split('-');
+            const date = new Date(year, parseInt(m) - 1, parseInt(d));
+            if (formatDate(date) < formatDate(new Date())) {
+                date.setFullYear(year + 1);
+            }
+            return date;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+            const [y, m, d] = input.split('-');
+            return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        }
+        return null;
+    }
+
+    function findShiftByDate(dateStr) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '');
+        if (!m) return null;
+        return getShiftForDate(new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3])));
+    }
+
+    function getTodayStr() {
+        return formatDate(new Date());
+    }
+
+    function getTomorrowStr() {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return formatDate(tomorrow);
+    }
+
+    // ===================== 渲染函数 =====================
+    function renderShiftCard(shift, title = '') {
+        const P = PATTERNS[currentPatternId];
+        if (!shift) {
+            return `<div class="no-result">
+                <div class="icon">🔍</div>
+                <div>未找到该日期的排班信息</div>
+                <div style="font-size:13px;color:#aaa;margin-top:8px;">请确认日期在排班范围内（从 ${document.getElementById('footerStartDate').textContent} 开始）</div>
+            </div>`;
+        }
+
+        const shiftBadge = `<span class="shift-badge shift-${shift.cssClass}">${shift.icon} ${shift.shift}</span>`;
+
+        return `
+            <div class="result-card">
+                <div class="date-header">${title ? title + ' ' : ''}📅 ${shift.date} (${shift.weekday})</div>
+                <div class="shift-info">
+                    <div class="shift-item"><span class="label">班次类型</span><span class="value">${shiftBadge}</span></div>
+                    <div class="shift-item"><span class="label">开始时间</span><span class="value">${shift.startTime}</span></div>
+                    <div class="shift-item"><span class="label">结束时间</span><span class="value">${shift.endTime}</span></div>
+                    <div class="shift-item"><span class="label">时长</span><span class="value">${shift.hours > 0 ? shift.hours + ' 小时' : '休息日'}</span></div>
+                </div>
+                <div style="margin-top:15px;padding-top:15px;border-top:1px solid #e0e0e0;font-size:13px;color:#888;">
+                    🔄 ${P.cycle.length}天循环 · 第 ${shift.cycleIndex + 1}/${P.cycle.length} 天（${shift.shift}）
+                </div>
+            </div>
+        `;
+    }
+
+    function renderWeekView() {
+        const today = new Date();
+        const dayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - dayOfWeek);
+
+        let html = `<div class="result-card"><div style="font-weight:600;margin-bottom:15px;">📆 本周排班 (从 ${formatDate(monday)} 开始)</div><div class="week-grid">`;
+
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + i);
+            const dateStr = formatDate(date);
+            const shift = findShiftByDate(dateStr);
+            const isToday = dateStr === getTodayStr();
+
+            let shiftHtml = '';
+            if (shift) {
+                shiftHtml = `<span class="shift-name ${shift.cssClass}">${shift.icon} ${shift.shift}</span>`;
+            } else {
+                shiftHtml = `<span style="color:#ccc;">未排班</span>`;
+            }
+
+            html += `
+                <div class="week-day ${isToday ? 'today' : ''}">
+                    <div class="date">${dateStr.slice(5)}</div>
+                    <div class="weekday">${getWeekday(date)}</div>
+                    <div class="shift-name-wrap">${shiftHtml}</div>
+                </div>
+            `;
+        }
+
+        html += '</div></div>';
+        return html;
+    }
+
+    function renderAllSchedule() {
+        const today = new Date();
+        const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 90);
+        const endStr = formatDate(endDate);
+        let displaySchedule = schedule.filter(s => s.date <= endStr);
+        if (displaySchedule.length === 0) displaySchedule = schedule.slice(0, 60);
+
+        let html = `
+            <div class="result-card">
+                <div style="font-weight:600;margin-bottom:15px;">📋 排班表 ${isManualMode ? '📌 手动模式' : ''}</div>
+                <div style="overflow-x:auto;">
+                <table class="schedule-table">
+                    <thead><tr><th>序号</th><th>日期</th><th>星期</th><th>班次</th><th>开始时间</th><th>结束时间</th></tr></thead>
+                    <tbody>
+        `;
+
+        displaySchedule.forEach(s => {
+            const tagClass = `tag-${s.cssClass}`;
+            const isToday = s.date === getTodayStr();
+            const highlight = isToday ? ' style="background:#f0f0ff;"' : '';
+            html += `
+                <tr${highlight}>
+                    <td>${s.index}</td>
+                    <td>${s.date} ${isToday ? '📌' : ''}</td>
+                    <td>${s.weekday}</td>
+                    <td><span class="shift-tag ${tagClass}">${s.icon} ${s.shift}</span></td>
+                    <td>${s.startTime}</td>
+                    <td>${s.endTime}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>
+                <div style="margin-top:10px;font-size:12px;color:#888;">共 ${displaySchedule.length} 条记录</div>
+                </div></div>`;
+        return html;
+    }
+
+    function renderStats() {
+        const P = PATTERNS[currentPatternId];
+        const types = [...new Set(P.cycle)];
+        const counts = {};
+        types.forEach(t => counts[t] = schedule.filter(s => s.shift === t).length);
+        const totalHours = types.reduce((sum, t) => sum + counts[t] * (P.shifts[t].hours || 0), 0);
+
+        const cards = types.map(t => {
+            const def = P.shifts[t];
+            const h = def.hours || 0;
+            return `<div class="stats-card"><div class="number ${def.cssClass}">${counts[t]}</div><div class="label">${def.icon} ${t}${h ? ` (${counts[t] * h}h)` : ''}</div></div>`;
+        }).join('');
+
+        const cycleText = P.cycle.map(t => t + (P.shifts[t].hours ? `(${P.shifts[t].hours}h)` : '')).join(' → ');
+
+        return `
+            <div class="result-card">
+                <div style="font-weight:600;margin-bottom:15px;">📊 排班统计 · ${P.name} ${isManualMode ? '📌 手动模式' : ''}</div>
+                <div class="stats-grid">
+                    ${cards}
+                    <div class="stats-card"><div class="number" style="color:#667eea;">${schedule.length}</div><div class="label">📋 总天数</div></div>
+                    <div class="stats-card"><div class="number" style="color:#764ba2;">${totalHours}</div><div class="label">⏰ 总工时 (小时)</div></div>
+                </div>
+                <div style="margin-top:15px;padding:15px;background:#f0f0ff;border-radius:10px;text-align:center;font-size:14px;color:#555;">
+                    🔄 循环规律: ${cycleText} → 重复
+                </div>
+            </div>
+        `;
+    }
+
+    function renderPreview(baseDate, baseShift) {
+        const previewDays = 10;
+        const previewSchedule = generateManualSchedule(baseDate, baseShift, previewDays);
+
+        let html = `
+            <div class="result-card" style="margin-top:15px;">
+                <div style="font-weight:600;margin-bottom:15px;color:#2ed573;">✅ 推算结果预览 (从 ${formatDate(baseDate)} 开始，${baseShift})</div>
+                <div style="overflow-x:auto;">
+                <table class="schedule-table">
+                    <thead><tr><th>序号</th><th>日期</th><th>星期</th><th>班次</th><th>开始时间</th><th>结束时间</th></tr></thead>
+                    <tbody>
+        `;
+
+        previewSchedule.forEach(s => {
+            const tagClass = `tag-${s.cssClass}`;
+            const isToday = s.date === getTodayStr();
+            const highlight = isToday ? ' style="background:#f0f0ff;"' : '';
+            html += `
+                <tr${highlight}>
+                    <td>${s.index}</td>
+                    <td>${s.date} ${isToday ? '📌' : ''}</td>
+                    <td>${s.weekday}</td>
+                    <td><span class="shift-tag ${tagClass}">${s.icon} ${s.shift}</span></td>
+                    <td>${s.startTime}</td>
+                    <td>${s.endTime}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>
+                <div style="margin-top:10px;font-size:13px;color:#888;">💡 确认无误后点击 "✅ 确认设置" 应用此排班</div>
+            </div>
+        `;
+        return html;
+    }
+
+    function updateStatusDisplay() {
+        const P = PATTERNS[currentPatternId];
+        document.getElementById('modeDisplay').textContent = P.name + (isManualMode ? ' · 📌 手动模式' : ' · 默认模式');
+        document.getElementById('startDateDisplay').textContent = formatDate(anchorDate);
+        document.getElementById('startShiftDisplay').textContent = anchorShift;
+        document.getElementById('footerStartDate').textContent = formatDate(anchorDate);
+        document.getElementById('footerMode').textContent = isManualMode ? '📌 手动模式' : '';
+        document.getElementById('footerCycle').textContent = P.cycle.length;
+        document.getElementById('subtitle').textContent = P.subtitle;
+    }
+
+    // ===================== 班制切换 =====================
+    function renderCycleInfo() {
+        const P = PATTERNS[currentPatternId];
+        const items = [...new Set(P.cycle)].map(t => {
+            const def = P.shifts[t];
+            const h = def.hours ? ` (${def.hours}h)` : '';
+            return `<div class="item"><span class="dot" style="background:${def.color};"></span> ${t}${h}</div>`;
+        }).join('');
+        document.getElementById('cycleInfo').innerHTML =
+            items + `<div class="item" style="font-weight:600;">→ 每${P.cycle.length}天循环</div>`;
+    }
+
+    function populateShiftSelect() {
+        const P = PATTERNS[currentPatternId];
+        document.getElementById('setShift').innerHTML =
+            P.cycle.map(t => `<option value="${t}">${P.shifts[t].icon} ${t}</option>`).join('');
+    }
+
+    function switchPattern(id) {
+        if (!PATTERNS[id] || id === currentPatternId) return;
+        currentPatternId = id;
+
+        const st = patternState[id];
+        anchorDate = new Date(st.anchorDate);
+        anchorShift = st.anchorShift;
+        isManualMode = st.isManual;
+        manualStartDate = st.manualStartDate ? new Date(st.manualStartDate) : null;
+        manualStartShift = st.manualStartShift;
+
+        schedule = generateScheduleWindow();
+
+        document.querySelectorAll('.pattern-switch button').forEach(b =>
+            b.classList.toggle('active', b.dataset.pattern === id));
+        renderCycleInfo();
+        populateShiftSelect();
+        document.getElementById('setResult').innerHTML = `
+            <div class="info-box info">
+                <strong>🔄 已切换到 ${PATTERNS[id].name}</strong><br>
+                当前基准: ${formatDate(anchorDate)} = ${anchorShift}，如需修改请在上方重新设置今天
+            </div>
+        `;
+        document.getElementById('setPreview').innerHTML = renderPreview(anchorDate, anchorShift);
+        refreshAllTabs();
+        saveState();
+    }
+
+    // ===================== 核心功能 =====================
+    function queryDate() {
+        const input = document.getElementById('dateInput').value.trim();
+        if (!input) {
+            document.getElementById('queryResult').innerHTML = `<div class="no-result"><div class="icon">⚠️</div><div>请输入日期</div></div>`;
+            return;
+        }
+
+        const dateObj = parseDate(input);
+        if (!dateObj) {
+            document.getElementById('queryResult').innerHTML = `<div class="no-result"><div class="icon">❌</div><div>日期格式错误，请使用 YYYY-MM-DD 或 MM-DD 格式</div></div>`;
+            return;
+        }
+
+        const dateStr = formatDate(dateObj);
+        const shift = findShiftByDate(dateStr);
+        document.getElementById('queryResult').innerHTML = renderShiftCard(shift);
+    }
+
+    function setTodayQuery() {
+        document.getElementById('dateInput').value = getTodayStr();
+        queryDate();
+    }
+
+    function setTomorrowQuery() {
+        document.getElementById('dateInput').value = getTomorrowStr();
+        queryDate();
+    }
+
+    function refreshAllTabs() {
+        const todayStr = getTodayStr();
+        const shift = findShiftByDate(todayStr);
+        document.getElementById('todayResult').innerHTML = renderShiftCard(shift, '📌 今天');
+        document.getElementById('weekResult').innerHTML = renderWeekView();
+        document.getElementById('allResult').innerHTML = renderAllSchedule();
+        document.getElementById('statsResult').innerHTML = renderStats();
+        updateStatusDisplay();
+
+        if (document.getElementById('tab-query').classList.contains('active')) {
+            const input = document.getElementById('dateInput').value.trim();
+            if (input) {
+                queryDate();
+            } else {
+                setTodayQuery();
+            }
+        }
+    }
+
+    function showToday() {
+        const todayStr = getTodayStr();
+        const shift = findShiftByDate(todayStr);
+        document.getElementById('todayResult').innerHTML = renderShiftCard(shift, '📌 今天');
+    }
+
+    function showWeek() {
+        document.getElementById('weekResult').innerHTML = renderWeekView();
+    }
+
+    function showAll() {
+        document.getElementById('allResult').innerHTML = renderAllSchedule();
+    }
+
+    function showStats() {
+        document.getElementById('statsResult').innerHTML = renderStats();
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+        const tabBtn = document.querySelector(`.nav-tabs button[data-tab="${tabId}"]`);
+        if (tabBtn) tabBtn.classList.add('active');
+        document.getElementById('tab-' + tabId).classList.add('active');
+    }
+
+    // ===================== 设置功能 =====================
+    function applySettings() {
+        const dateInput = document.getElementById('setDate').value.trim();
+        const shiftSelect = document.getElementById('setShift').value;
+
+        if (!dateInput) {
+            document.getElementById('setResult').innerHTML = `<div class="no-result"><div class="icon">⚠️</div><div>请输入日期</div></div>`;
+            document.getElementById('setPreview').innerHTML = '';
+            return;
+        }
+
+        const dateObj = parseDate(dateInput);
+        if (!dateObj) {
+            document.getElementById('setResult').innerHTML = `<div class="no-result"><div class="icon">❌</div><div>日期格式错误，请使用 YYYY-MM-DD 或 MM-DD 格式</div></div>`;
+            document.getElementById('setPreview').innerHTML = '';
+            return;
+        }
+
+        isManualMode = true;
+        manualStartDate = dateObj;
+        manualStartShift = shiftSelect;
+
+        anchorDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+        anchorShift = shiftSelect;
+        schedule = generateScheduleWindow();
+
+        patternState[currentPatternId] = {
+            anchorDate: new Date(anchorDate), anchorShift: anchorShift,
+            isManual: true, manualStartDate: new Date(dateObj), manualStartShift: shiftSelect
+        };
+        saveState();
+
+        document.getElementById('footerStartDate').textContent = formatDate(dateObj);
+        document.getElementById('footerMode').textContent = '📌 手动模式';
+
+        const P = PATTERNS[currentPatternId];
+        document.getElementById('setResult').innerHTML = `
+            <div class="info-box success">
+                <strong>✅ 排班已更新！</strong><br>
+                ${P.name} · 从 ${formatDate(dateObj)} 开始，${shiftSelect} → 后续自动推算<br>
+                <span style="font-size:13px;">循环规律: ${P.cycle.join(' → ')} (每${P.cycle.length}天循环)</span>
+            </div>
+        `;
+        document.getElementById('setPreview').innerHTML = renderPreview(dateObj, shiftSelect);
+
+        updateStatusDisplay();
+        refreshAllTabs();
+
+        switchTab('query');
+        document.getElementById('dateInput').value = getTodayStr();
+        queryDate();
+    }
+
+    function resetDefault() {
+        patternState[currentPatternId] = defaultStateFor(currentPatternId);
+        const st = patternState[currentPatternId];
+        isManualMode = false;
+        manualStartDate = null;
+        manualStartShift = null;
+        anchorDate = new Date(st.anchorDate);
+        anchorShift = st.anchorShift;
+        schedule = generateScheduleWindow();
+        saveState();
+
+        const P = PATTERNS[currentPatternId];
+        document.getElementById('footerStartDate').textContent = formatDate(anchorDate);
+        document.getElementById('footerMode').textContent = '';
+
+        document.getElementById('setResult').innerHTML = `
+            <div class="info-box info">
+                <strong>↩️ 已恢复默认</strong><br>
+                ${P.name} · 从 ${formatDate(anchorDate)} 开始，${anchorShift} → 后续自动推算
+            </div>
+        `;
+        document.getElementById('setPreview').innerHTML = renderPreview(anchorDate, anchorShift);
+
+        updateStatusDisplay();
+        refreshAllTabs();
+        switchTab('query');
+        document.getElementById('dateInput').value = getTodayStr();
+        queryDate();
+    }
+
+    // ===================== iPhone 提示 =====================
+    function initIosHint() {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isStandalone = window.navigator.standalone === true ||
+            window.matchMedia('(display-mode: standalone)').matches;
+        const dismissed = storageGet(HINT_KEY) === '1';
+        if (isIOS && !isStandalone && !dismissed) {
+            document.getElementById('iosHint').classList.add('show');
+        }
+    }
+    function dismissIosHint() {
+        storageSet(HINT_KEY, '1');
+        document.getElementById('iosHint').classList.remove('show');
+    }
+
+    // ===================== Tab切换事件 =====================
+    document.querySelectorAll('.nav-tabs button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            switchTab(tabId);
+
+            switch(tabId) {
+                case 'today': showToday(); break;
+                case 'week': showWeek(); break;
+                case 'all': showAll(); break;
+                case 'stats': showStats(); break;
+                case 'query':
+                    if (!document.getElementById('dateInput').value) {
+                        setTodayQuery();
+                    }
+                    break;
+                case 'set':
+                    if (!document.getElementById('setPreview').innerHTML) {
+                        document.getElementById('setPreview').innerHTML = renderPreview(anchorDate, anchorShift);
+                    }
+                    break;
+            }
+        });
+    });
+
+    // ===================== 回车事件 =====================
+    document.getElementById('dateInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') queryDate();
+    });
+
+    document.getElementById('setDate').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') applySettings();
+    });
+
+    // ===================== 初始化 =====================
+    loadState();
+    {
+        const st = patternState[currentPatternId];
+        anchorDate = new Date(st.anchorDate);
+        anchorShift = st.anchorShift;
+        isManualMode = st.isManual;
+        manualStartDate = st.manualStartDate ? new Date(st.manualStartDate) : null;
+        manualStartShift = st.manualStartShift;
+    }
+    schedule = generateScheduleWindow();
+    renderCycleInfo();
+    populateShiftSelect();
+    updateStatusDisplay();
+    document.querySelectorAll('.pattern-switch button').forEach(b =>
+        b.classList.toggle('active', b.dataset.pattern === currentPatternId));
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('dateInput').value = getTodayStr();
+        queryDate();
+        showToday();
+        showWeek();
+        showAll();
+        showStats();
+        document.getElementById('setPreview').innerHTML = renderPreview(anchorDate, anchorShift);
+
+        document.querySelectorAll('.pattern-switch button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                switchPattern(this.dataset.pattern);
+            });
+        });
+
+        initIosHint();
+    });
+
+    // 离线缓存（需要 HTTPS 或 localhost；局域网 HTTP 下会自动跳过）
+    if ('serviceWorker' in navigator &&
+        (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('sw.js').catch(function() {});
+        });
+    }
+</script>
+
+</body>
+</html>
